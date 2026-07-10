@@ -319,7 +319,7 @@ const Dashboard = () => {
                   <div className="space-y-1.5 pt-2">
                     <p className="text-xs text-muted-foreground font-medium">Today's Intake:</p>
                     <div className="flex flex-wrap gap-2">
-                      {todayMeals.filter(e => completedMeals[e.id]).map(entry => (
+                      {todayMeals.filter((e: any) => completedMeals[e.id]).map((entry: any) => (
                         <div key={entry.id} className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border bg-primary/10 text-primary border-primary/20">
                           <CheckCircle2 size={12}/> {entry.mealType}
                         </div>
@@ -332,7 +332,7 @@ const Dashboard = () => {
                           </button>
                         </div>
                       ))}
-                      {todayMeals.filter(e => completedMeals[e.id]).length === 0 && manualEntries.length === 0 && (
+                      {todayMeals.filter((e: any) => completedMeals[e.id]).length === 0 && manualEntries.length === 0 && (
                         <span className="text-xs text-muted-foreground italic">No food logged yet</span>
                       )}
                     </div>

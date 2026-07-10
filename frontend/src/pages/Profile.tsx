@@ -8,7 +8,7 @@ import { Input } from '../components/ui/Input';
 import { User as UserIcon, Activity, Target, Heart, AlertTriangle, Save, X } from 'lucide-react';
 
 export default function Profile() {
-  const { user, updateUser } = useAuth();
+  const { updateUser } = useAuth();
   const queryClient = useQueryClient();
 
   // Local state for all fields

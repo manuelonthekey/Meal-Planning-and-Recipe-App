@@ -14,7 +14,6 @@ interface RecipePickerModalProps {
   dayLabel: string;
 }
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const RecipePickerModal = ({
   isOpen,

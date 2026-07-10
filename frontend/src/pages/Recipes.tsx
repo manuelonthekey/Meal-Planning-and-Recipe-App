@@ -25,7 +25,7 @@ const Recipes = () => {
 
   const [suggestions, setSuggestions] = useState<{title: string}[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const suggestionRef = useRef<HTMLDivElement>(null);
+  const suggestionRef = useRef<HTMLFormElement>(null);
 
   // Autocomplete fetcher
   useEffect(() => {
@@ -177,7 +177,6 @@ const Recipes = () => {
             <RecipeCard
               key={match.recipe.id}
               recipe={match.recipe}
-              matchPercentage={match.matchPercentage}
               matchCount={match.matchCount}
               missingIngredients={match.missingIngredients}
               onViewDetail={() => setSelectedRecipeId(match.recipe.id)}
@@ -204,13 +203,11 @@ const Recipes = () => {
 
 const RecipeCard = ({
   recipe,
-  matchPercentage,
   matchCount,
   missingIngredients,
   onViewDetail,
 }: {
   recipe: any;
-  matchPercentage?: number;
   matchCount?: number;
   missingIngredients?: any[];
   onViewDetail: () => void;

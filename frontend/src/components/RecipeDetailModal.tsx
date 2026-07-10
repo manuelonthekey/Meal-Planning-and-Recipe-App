@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '../api/client';
 import { X, Clock, Users, ExternalLink, Loader2, Flame, Dumbbell, Wheat, Droplets } from 'lucide-react';
-import { Button } from './ui/Button';
+
 
 interface RecipeDetailModalProps {
   recipeId: number | null;
