@@ -1,0 +1,108 @@
+[
+  {
+    "id": 10000001,
+    "title": "Classic Spaghetti Carbonara",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/33/Fresh_made_pasta_Bolognese.jpg",
+    "prepTimeMinutes": 25,
+    "servings": 4,
+    "cuisine": "Italian",
+    "dietTags": [],
+    "sourceUrl": "",
+    "ingredients": [
+      { "name": "spaghetti",          "quantity": 400, "unit": "g",   "rawText": "400g spaghetti" },
+      { "name": "pancetta",            "quantity": 150, "unit": "g",   "rawText": "150g pancetta or guanciale" },
+      { "name": "egg",                 "quantity": 4,               "rawText": "4 large eggs" },
+      { "name": "parmesan cheese",     "quantity": 80,  "unit": "g",   "rawText": "80g grated Parmesan" },
+      { "name": "black pepper",        "quantity": 1,   "unit": "tsp", "rawText": "1 tsp freshly ground black pepper" },
+      { "name": "salt",                "quantity": 1,   "unit": "tsp", "rawText": "Salt to taste" }
+    ],
+    "instructions": [
+      { "step": 1, "text": "Cook spaghetti in well-salted boiling water until al dente. Reserve 1 cup of pasta water." },
+      { "step": 2, "text": "Fry pancetta in a large skillet over medium heat until crispy. Remove from heat." },
+      { "step": 3, "text": "Whisk eggs with grated Parmesan and plenty of black pepper in a bowl." },
+      { "step": 4, "text": "Drain pasta and immediately toss into the skillet with pancetta off the heat." },
+      { "step": 5, "text": "Pour the egg mixture over pasta and toss quickly, adding pasta water a splash at a time until silky and creamy." },
+      { "step": 6, "text": "Serve immediately with extra Parmesan and black pepper." }
+    ],
+    "nutrition": {
+      "calories": 620,
+      "protein": 28,
+      "fat": 22,
+      "carbohydrates": 75,
+      "fiber": 3,
+      "sodium": 680,
+      "sugar": 2
+    }
+  },
+  {
+    "id": 10000002,
+    "title": "Chicken Tikka Masala",
+    "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0d/Chicken_Tikka_Masala.jpg",
+    "prepTimeMinutes": 45,
+    "servings": 4,
+    "cuisine": "Indian",
+    "dietTags": ["gluten-free"],
+    "sourceUrl": "",
+    "ingredients": [
+      { "name": "chicken breast",  "quantity": 700, "unit": "g",   "rawText": "700g boneless chicken breast" },
+      { "name": "yogurt",          "quantity": 200, "unit": "ml",  "rawText": "200ml plain yogurt" },
+      { "name": "garlic",          "quantity": 4,               "rawText": "4 cloves garlic, minced" },
+      { "name": "ginger",          "quantity": 1,   "unit": "tbsp","rawText": "1 tbsp fresh ginger, grated" },
+      { "name": "garam masala",    "quantity": 2,   "unit": "tsp", "rawText": "2 tsp garam masala" },
+      { "name": "cumin",           "quantity": 1,   "unit": "tsp", "rawText": "1 tsp ground cumin" },
+      { "name": "tomato puree",    "quantity": 400, "unit": "g",   "rawText": "400g canned tomatoes" },
+      { "name": "heavy cream",     "quantity": 150, "unit": "ml",  "rawText": "150ml heavy cream" },
+      { "name": "onion",           "quantity": 1,               "rawText": "1 large onion, chopped" },
+      { "name": "butter",          "quantity": 2,   "unit": "tbsp","rawText": "2 tbsp butter" }
+    ],
+    "instructions": [
+      "Marinate chicken pieces in yogurt, garlic, ginger, and spices for at least 30 minutes.",
+      "Grill or pan-fry chicken until lightly charred. Set aside.",
+      "Melt butter in a pan, sauté onions until golden. Add remaining garlic and ginger.",
+      "Add garam masala and cumin, toast 1 minute. Add tomato puree, simmer 15 minutes.",
+      "Stir in cream and chicken pieces. Simmer 10 more minutes until sauce thickens.",
+      "Serve with basmati rice or naan."
+    ],
+    "nutrition": {
+      "calories": 480,
+      "protein": 42,
+      "fat": 24,
+      "carbohydrates": 18,
+      "fiber": 3,
+      "sodium": 520
+    }
+  },
+  {
+    "id": 10000003,
+    "title": "Avocado & Black Bean Tacos",
+    "imageUrl": "",
+    "prepTimeMinutes": 15,
+    "servings": 3,
+    "cuisine": "Mexican",
+    "dietTags": ["vegan", "vegetarian", "dairy-free"],
+    "sourceUrl": "",
+    "ingredients": [
+      { "name": "tortillas",      "quantity": 6,               "rawText": "6 small corn tortillas" },
+      { "name": "avocado",        "quantity": 2,               "rawText": "2 ripe avocados" },
+      { "name": "black beans",    "quantity": 400, "unit": "g",   "rawText": "400g canned black beans, drained" },
+      { "name": "lime",           "quantity": 1,               "rawText": "Juice of 1 lime" },
+      { "name": "red onion",      "quantity": 0.5,             "rawText": "Half a red onion, finely diced" },
+      { "name": "cilantro",       "quantity": 0.25,"unit": "cup", "rawText": "¼ cup fresh cilantro, chopped" },
+      { "name": "jalapeño",       "quantity": 1,               "rawText": "1 jalapeño, sliced (optional)" },
+      { "name": "salt",           "quantity": 0.5, "unit": "tsp", "rawText": "½ tsp salt" }
+    ],
+    "instructions": [
+      { "step": 1, "text": "Warm tortillas in a dry skillet or directly over a gas flame." },
+      { "step": 2, "text": "Mash avocados with lime juice and salt." },
+      { "step": 3, "text": "Heat black beans in a small pot with a pinch of cumin." },
+      { "step": 4, "text": "Assemble tacos: spread avocado, top with black beans, red onion, cilantro, and jalapeño." }
+    ],
+    "nutrition": {
+      "calories": 340,
+      "protein": 11,
+      "fat": 16,
+      "carbohydrates": 42,
+      "fiber": 12
+    }
+  }
+]

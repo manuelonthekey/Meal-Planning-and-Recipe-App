@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String              @unique @db.VarChar(255)
+  passwordHash        String              @map("password_hash") @db.VarChar(255)
+  name                String              @db.VarChar(100)
+  dailyCaloriesTarget Int?                @map("daily_calories_target")
+  age                 Int?
+  weightKg            Decimal?            @map("weight_kg")
+  heightCm            Decimal?            @map("height_cm")
+  gender              String?             @db.VarChar(20)
+  activityLevel       String?             @map("activity_level") @db.VarChar(30)
+  proteinTarget       Int?                @map("protein_target")
+  carbsTarget         Int?                @map("carbs_target")
+  fatTarget           Int?                @map("fat_target")
+  dietaryPreferences  String[]            @default([]) @map("dietary_preferences")
+  allergies           String[]            @default([])
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  pantryItems         PantryItem[]
+  pantryItemHistory   PantryItemHistory[]
+  mealPlans           MealPlan[]
+  favorites           UserFavorite[]
+
+  @@map("users")
+}
+
+model Ingredient {
+  id                Int                @id @default(autoincrement())
+  canonicalName     String             @unique @map("canonical_name") @db.VarChar(100)
+  category          String?            @db.VarChar(50)
+  aliases           IngredientAlias[]
+  recipeIngredients RecipeIngredient[]
+  pantryItems       PantryItem[]
+  pantryItemHistory PantryItemHistory[]
+
+  @@map("ingredients")
+}
+
+model IngredientAlias {
+  id           Int        @id @default(autoincrement())
+  ingredientId Int        @map("ingredient_id")
+  alias        String     @db.VarChar(150)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@index([alias])
+  @@map("ingredient_aliases")
+}
+
+model Recipe {
+  id                Int                @id
+  title             String             @db.VarChar(255)
+  imageUrl          String?            @map("image_url")
+  prepTimeMinutes   Int?               @map("prep_time_minutes")
+  servings          Int?
+  cuisine           String?            @db.VarChar(50)
+  dietTags          String[]           @map("diet_tags")
+  instructions      Json?
+  nutrition         Json?
+  sourceUrl         String?            @map("source_url")
+  cachedAt          DateTime           @default(now()) @map("cached_at") @db.Timestamptz
+  recipeIngredients RecipeIngredient[]
+  mealPlanEntries   MealPlanEntry[]
+  userFavorites     UserFavorite[]
+
+  @@index([cuisine])
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  id           Int         @id @default(autoincrement())
+  recipeId     Int         @map("recipe_id")
+  ingredientId Int?        @map("ingredient_id")
+  rawText      String      @map("raw_text") @db.VarChar(255)
+  quantity     Decimal?
+  unit         String?     @db.VarChar(30)
+  recipe       Recipe      @relation(fields: [recipeId], references: [id])
+  ingredient   Ingredient? @relation(fields: [ingredientId], references: [id])
+
+  @@map("recipe_ingredients")
+}
+
+model PantryItem {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  ingredientId Int        @map("ingredient_id")
+  quantity     Decimal?
+  unit         String?    @db.VarChar(30)
+  expiryDate   DateTime?  @map("expiry_date") @db.Date
+  addedAt      DateTime   @default(now()) @map("added_at") @db.Timestamptz
+  user         User       @relation(fields: [userId], references: [id])
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@index([userId])
+  @@map("pantry_items")
+}
+
+model MealPlan {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String          @map("user_id") @db.Uuid
+  weekStartDate DateTime        @map("week_start_date") @db.Date
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  user          User            @relation(fields: [userId], references: [id])
+  entries       MealPlanEntry[]
+
+  @@map("meal_plans")
+}
+
+model MealPlanEntry {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mealPlanId         String   @map("meal_plan_id") @db.Uuid
+  recipeId           Int      @map("recipe_id")
+  dayOfWeek          Int      @map("day_of_week") @db.SmallInt
+  mealType           String   @map("meal_type") @db.VarChar(20)
+  servingsMultiplier Decimal? @default(1.0) @map("servings_multiplier")
+  mealPlan           MealPlan @relation(fields: [mealPlanId], references: [id])
+  recipe             Recipe   @relation(fields: [recipeId], references: [id])
+
+  @@index([mealPlanId])
+  @@map("meal_plan_entries")
+}
+
+model UserFavorite {
+  userId   String @map("user_id") @db.Uuid
+  recipeId Int    @map("recipe_id")
+  user     User   @relation(fields: [userId], references: [id])
+  recipe   Recipe @relation(fields: [recipeId], references: [id])
+
+  @@id([userId, recipeId])
+  @@map("user_favorites")
+}
+
+model PantryItemHistory {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  ingredientId Int        @map("ingredient_id")
+  action       String     @db.VarChar(50) // "emptied", "expired", etc.
+  quantity     Decimal?
+  unit         String?    @db.VarChar(30)
+  recordedAt   DateTime   @default(now()) @map("recorded_at") @db.Timestamptz
+  user         User       @relation(fields: [userId], references: [id])
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@index([userId])
+  @@map("pantry_item_history")
+}

@@ -1,0 +1,583 @@
+﻿
+╔══════════════════════════════════════════════════════════════════════════════╗
+║             PANTRYCHEF — COMPLETE ARCHITECTURE & FILE GUIDE                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+Written for: Manojit Maitra
+Project path: C:\Users\Lenovo\Desktop\Meal Planning and Recipe App\
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ OVERVIEW — HOW THE TWO HALVES TALK TO EACH OTHER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  [ Browser ] <-> [ Frontend: React on :5173 ] <-> [ Backend: Express on :3001 ] <-> [ PostgreSQL on :5433 ]
+
+  The user only ever sees the FRONTEND. It is a React app running in the browser.
+  When it needs data (e.g. login, fetch recipes, update pantry), it sends an
+  HTTP request to the BACKEND. The backend processes the request, talks to the
+  DATABASE, and sends back a JSON response. The frontend then updates the screen.
+
+  One extra external service is involved:
+    Spoonacular API (api.spoonacular.com) — the backend calls this to fetch
+    recipe data and caches the results in the local PostgreSQL database to
+    save API quota on repeated searches.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ PROJECT ROOT STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Meal Planning and Recipe App/
+  ├── backend/      <- Node.js + Express + TypeScript API server
+  └── frontend/     <- React + Vite + TypeScript web application
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                        PART 1: BACKEND                                      ║
+║              backend/ — The API server, runs on port 3001                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  backend/
+  ├── .env                    <- Secret configuration file (never commit this!)
+  ├── package.json            <- npm scripts and dependency list
+  ├── tsconfig.json           <- TypeScript compiler settings
+  ├── prisma.config.ts        <- Prisma ORM configuration (points to .env)
+  ├── prisma/
+  │   └── schema.prisma       <- Database table definitions (the "blueprint")
+  └── src/
+      ├── server.ts           <- Entry point — starts the Express app
+      ├── db.ts               <- Database connection — creates Prisma client
+      ├── middleware/
+      │   ├── auth.middleware.ts   <- Guards protected routes
+      │   └── error.middleware.ts  <- Catches all unhandled errors
+      ├── routes/
+      │   ├── auth.routes.ts       <- /api/v1/auth
+      │   ├── pantry.routes.ts     <- /api/v1/pantry
+      │   ├── recipes.routes.ts    <- /api/v1/recipes
+      │   ├── mealPlans.routes.ts  <- /api/v1/meal-plans
+      │   └── favorites.routes.ts  <- /api/v1/favorites
+      └── services/
+          ├── spoonacular.service.ts   <- Talks to Spoonacular API
+          ├── normalization.service.ts <- Cleans up ingredient names
+          ├── matching.service.ts      <- Computes pantry-recipe match %
+          └── shoppingList.service.ts  <- Builds the grocery list
+
+─────────────────────────────────────────────────────────────────────────────
+ BACKEND: KEY FILES IN DETAIL
+─────────────────────────────────────────────────────────────────────────────
+
+[ backend/.env ]
+
+  Stores ALL sensitive settings. Never shared publicly.
+
+  DATABASE_URL      -> Connection string to your PostgreSQL database.
+                       Format: postgresql://user:password@host:port/dbname
+                       Current: postgresql://postgres:1234567890@localhost:5433/eatSmart
+
+  JWT_SECRET        -> A secret passphrase used to sign login tokens.
+                       Change this to a long random string in production.
+
+  SPOONACULAR_API_KEY -> Your Spoonacular API key for recipe data.
+
+  PORT              -> Which port the backend runs on (default: 3001).
+
+  * WHY IT MATTERS: If DATABASE_URL is wrong, the server crashes. If
+    JWT_SECRET changes, all existing logged-in users get logged out.
+
+
+[ backend/prisma/schema.prisma — THE DATABASE BLUEPRINT ]
+
+  This file defines ALL database tables. When you run "npx prisma db push",
+  Prisma reads this file and creates/updates the actual tables in PostgreSQL.
+
+  TABLES:
+
+  User
+  ├── id            (UUID, auto-generated primary key)
+  ├── email         (unique)
+  ├── passwordHash  (bcrypt-hashed password, never plain text)
+  ├── name
+  └── createdAt
+
+  Ingredient
+  ├── id             (auto-increment integer)
+  ├── canonicalName  (the "official" name, e.g. "chicken breast")
+  ├── category       (e.g. "meat", "vegetable", "dairy")
+  └── aliases        -> linked to IngredientAlias
+
+  IngredientAlias
+  ├── alias          (alternative name, e.g. "chick breast")
+  └── ingredientId   -> foreign key to Ingredient
+
+  Recipe
+  ├── id              (Spoonacular integer ID)
+  ├── title
+  ├── imageUrl
+  ├── prepTimeMinutes
+  ├── servings
+  ├── cuisine
+  ├── dietTags        (array: ["vegan", "gluten-free"])
+  ├── instructions    (JSON)
+  ├── nutrition       (JSON)
+  └── cachedAt        (when we last refreshed from Spoonacular)
+
+  RecipeIngredient  (joins Recipe <-> Ingredient)
+  ├── recipeId     -> foreign key to Recipe
+  ├── ingredientId -> foreign key to Ingredient
+  ├── rawText      (original text: "2 cups all-purpose flour")
+  ├── quantity     (numeric amount)
+  └── unit         (e.g. "cup", "g", "tbsp")
+
+  PantryItem  (what a user currently has at home)
+  ├── id           (UUID)
+  ├── userId       -> foreign key to User
+  ├── ingredientId -> foreign key to Ingredient
+  ├── quantity
+  ├── unit
+  └── addedAt
+
+  MealPlan  (a user's weekly plan)
+  ├── id            (UUID)
+  ├── userId        -> foreign key to User
+  ├── weekStartDate (the Monday of the planned week)
+  └── entries       -> linked to MealPlanEntry
+
+  MealPlanEntry  (a single recipe in a day/meal slot)
+  ├── id                 (UUID)
+  ├── mealPlanId         -> foreign key to MealPlan
+  ├── recipeId           -> foreign key to Recipe
+  ├── dayOfWeek          (0=Monday, 6=Sunday)
+  ├── mealType           ("breakfast", "lunch", "dinner")
+  └── servingsMultiplier (scale recipe up/down)
+
+  UserFavorite  (bookmarked recipes)
+  ├── userId   -> foreign key to User
+  └── recipeId -> foreign key to Recipe
+      (userId + recipeId = composite primary key)
+
+
+[ backend/src/db.ts — DATABASE CONNECTION ]
+
+  Creates ONE global Prisma client shared by the entire app.
+
+  How it works:
+  1. Reads DATABASE_URL from .env
+  2. Creates a pg connection pool (multiple requests can query DB at once)
+  3. Wraps pool in PrismaPg adapter (required for Prisma v7+)
+  4. Creates PrismaClient with that adapter
+  5. Exports the client — every route imports prisma from here
+
+
+[ backend/src/server.ts — THE ENTRY POINT ]
+
+  The first file that runs when you type "npm run dev".
+
+  What it does (in order):
+  1. Loads .env via "import 'dotenv/config'" — MUST be first line
+     (if db.ts loads before .env is parsed, DATABASE_URL is undefined)
+  2. Creates an Express app
+  3. Enables CORS (allows frontend on :5173 to call backend on :3001)
+  4. Enables JSON body parsing
+  5. Mounts all route handlers:
+       /api/v1/auth       -> auth.routes.ts
+       /api/v1/pantry     -> pantry.routes.ts
+       /api/v1/recipes    -> recipes.routes.ts
+       /api/v1/meal-plans -> mealPlans.routes.ts
+       /api/v1/favorites  -> favorites.routes.ts
+  6. Mounts error handler
+  7. Starts listening on PORT (default 3001)
+
+
+[ backend/src/middleware/auth.middleware.ts — ROUTE GUARD ]
+
+  Sits in front of every protected route. Checks if the caller is logged in.
+
+  How it works:
+  1. Reads "Authorization: Bearer <token>" header from the request
+  2. Verifies the token with JWT_SECRET (checks it hasn't been tampered)
+  3. Looks up the user in the database
+  4. If valid -> attaches user to req.user and passes to the route handler
+  5. If invalid/missing -> returns 401 Unauthorized immediately
+
+  * Every route file except auth.routes.ts starts with:
+    router.use(authenticateToken)
+
+
+[ backend/src/middleware/error.middleware.ts — ERROR CATCHER ]
+
+  Any route that calls next(error) is caught here.
+  Returns a clean JSON error instead of crashing or leaking stack traces.
+
+  Handles:
+  - Zod validation errors   -> 400 Bad Request
+  - Prisma constraint errors -> 409 Conflict
+  - Everything else          -> 500 Internal Server Error
+
+
+─────────────────────────────────────────────────────────────────────────
+ BACKEND ROUTES — THE API ENDPOINTS
+─────────────────────────────────────────────────────────────────────────
+
+[ auth.routes.ts — /api/v1/auth ]  (Public — no login required)
+
+  POST /api/v1/auth/register
+    Input:  { name, email, password }
+    Steps:  validate -> check duplicate email -> hash password -> create User -> sign JWT
+    Output: { token, user: { id, email, name } }
+
+  POST /api/v1/auth/login
+    Input:  { email, password }
+    Steps:  find user by email -> compare password hash -> sign JWT
+    Output: { token, user: { id, email, name } }
+
+  * The token is what the frontend stores in localStorage and sends in every
+    future request's Authorization header.
+
+
+[ pantry.routes.ts — /api/v1/pantry ]  (Protected)
+
+  GET    /api/v1/pantry
+    Returns all pantry items for the logged-in user, with ingredient details.
+
+  POST   /api/v1/pantry
+    Input:  { ingredientName, quantity?, unit? }
+    Steps:  normalize ingredient name -> find/create Ingredient -> create PantryItem
+    Output: The created pantry item
+
+  PATCH  /api/v1/pantry/:id
+    Input:  { quantity?, unit? }
+    Updates quantity/unit of an existing item (checks ownership first).
+
+  DELETE /api/v1/pantry/:id
+    Removes an item (checks ownership first).
+
+
+[ recipes.routes.ts — /api/v1/recipes ]  (Protected)
+
+  GET /api/v1/recipes/search?query=pasta&cuisine=italian&diet=vegan&maxPrepTime=30
+    Calls SpoonacularService.searchRecipes()
+    Checks local DB cache first. If 10+ results, returns those.
+    Otherwise calls Spoonacular API, caches results, returns them.
+
+  GET /api/v1/recipes/by-pantry?minMatch=50
+    Calls MatchingService.getRecipesByPantry()
+    Compares every cached recipe against the user's pantry.
+    Returns recipes where match% >= minMatch, sorted best-first.
+
+  GET /api/v1/recipes/:id
+    Returns one recipe by Spoonacular ID (cache-first, API fallback).
+
+
+[ mealPlans.routes.ts — /api/v1/meal-plans ]  (Protected)
+
+  GET  /api/v1/meal-plans/current
+    Finds or auto-creates the meal plan for the current week.
+    Returns the plan with all entries (including recipe details).
+
+  POST /api/v1/meal-plans/:id/entries
+    Input:  { recipeId, dayOfWeek, mealType, servingsMultiplier }
+    Adds a recipe to a day/meal slot on the weekly planner.
+
+  DELETE /api/v1/meal-plans/entries/:id
+    Removes one entry from the planner.
+
+  GET  /api/v1/meal-plans/:id/shopping-list?hideOwned=true/false
+    Calls ShoppingListService.generate()
+    Builds an aggregated grocery list from all planned recipes.
+    Marks items already covered by your pantry.
+
+
+[ favorites.routes.ts — /api/v1/favorites ]  (Protected)
+
+  GET    /api/v1/favorites              -> List all bookmarked recipes
+  POST   /api/v1/favorites/:recipeId    -> Bookmark a recipe
+  DELETE /api/v1/favorites/:recipeId    -> Remove a bookmark
+
+
+─────────────────────────────────────────────────────────────────────────
+ BACKEND SERVICES — THE BUSINESS LOGIC
+─────────────────────────────────────────────────────────────────────────
+
+[ normalization.service.ts ]
+
+  Problem: "chix", "Chicken Breast", "skinless chicken" should all map
+  to ONE canonical ingredient in the database.
+
+  How it works:
+  1. Lowercases and trims the input
+  2. Checks DB for exact match in ingredient names or aliases
+  3. If no exact match, uses fuzzball (fuzzy string matching) to find
+     closest existing ingredient (threshold: 80% similarity)
+  4. If still no match -> creates a new Ingredient record
+  5. Returns the Ingredient's integer ID
+
+  Called by: pantry.routes.ts (add item) and spoonacular.service.ts (caching)
+
+
+[ spoonacular.service.ts ]
+
+  The bridge between the local DB and the Spoonacular external API.
+
+  searchRecipes(query, cuisine, diet, maxPrepTime):
+  1. Queries local DB first (saves API quota)
+  2. If 10+ results found locally -> returns them (no API call)
+  3. If fewer -> calls api.spoonacular.com/recipes/complexSearch
+  4. For each recipe returned:
+     - Upserts the Recipe in DB
+     - For each ingredient: calls NormalizationService to get/create
+       an Ingredient record, then creates a RecipeIngredient row
+  5. Returns the fully enriched recipes
+
+  getRecipeById(id):
+  Same pattern — checks DB first, fetches from Spoonacular if missing.
+
+
+[ matching.service.ts ]
+
+  The core "smart" feature of PantryChef.
+
+  getRecipesByPantry(userId, minMatch):
+  1. Gets all ingredientIds in the user's pantry (as a Set)
+  2. Fetches ALL cached recipes with their ingredients
+  3. For each recipe:
+     - Counts how many required ingredients are in the pantry Set
+     - matchPercentage = (matches / totalIngredients) * 100
+     - Tracks which ingredients are missing
+  4. Keeps only recipes where matchPercentage >= minMatch
+  5. Sorts: highest match% first, then shortest prep time first
+  6. Returns: [{ recipe, matchPercentage, missingIngredients }]
+
+
+[ shoppingList.service.ts ]
+
+  Generates an aggregated grocery list from a meal plan.
+
+  generate(mealPlanId, hideOwned):
+  1. Fetches the meal plan with all entries, recipes, and ingredients
+  2. For each entry, scales ingredient quantities by servingsMultiplier
+  3. Aggregates quantities (two recipes needing "olive oil" combine)
+  4. Cross-references with user's pantry — marks items as owned/partial
+  5. Groups items by category (e.g. "produce", "dairy", "meat")
+  6. If hideOwned=true, filters out items the user already has
+  7. Returns: { [category]: [{ name, quantity, unit, isFullyOwned }] }
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                        PART 2: FRONTEND                                     ║
+║              frontend/ — The React app, runs in browser on port 5173       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  frontend/src/
+  ├── main.tsx              <- Entry point — mounts React app
+  ├── App.tsx               <- Router — defines all URL routes
+  ├── index.css             <- Global styles and design tokens
+  ├── api/
+  │   └── client.ts         <- Axios HTTP client (pre-configured)
+  ├── context/
+  │   └── AuthContext.tsx   <- Global auth state
+  ├── lib/
+  │   └── utils.ts          <- Tailwind class merge helper
+  ├── components/
+  │   ├── Layout.tsx        <- Sidebar + main content shell
+  │   └── ui/
+  │       ├── Button.tsx    <- Reusable button
+  │       ├── Card.tsx      <- Card, CardHeader, CardContent, CardFooter
+  │       └── Input.tsx     <- Reusable text input
+  └── pages/
+      ├── Login.tsx         <- /login
+      ├── Register.tsx      <- /register
+      ├── Dashboard.tsx     <- /dashboard
+      ├── Pantry.tsx        <- /pantry
+      ├── Recipes.tsx       <- /recipes
+      └── MealPlanner.tsx   <- /planner
+
+
+─────────────────────────────────────────────────────────────────────────
+ FRONTEND: KEY FILES IN DETAIL
+─────────────────────────────────────────────────────────────────────────
+
+[ src/main.tsx — FRONTEND ENTRY POINT ]
+
+  Wraps the whole app in providers:
+
+  <QueryClientProvider>   <- Enables React Query (data fetching/caching)
+    <AuthProvider>        <- Enables global auth state
+      <App />             <- Application with routing
+    </AuthProvider>
+  </QueryClientProvider>
+
+  Providers allow any component to access auth state or React Query
+  without passing props through every layer.
+
+
+[ src/App.tsx — ROUTING ]
+
+  URL structure:
+  /login      -> Login page (public)
+  /register   -> Register page (public)
+  /dashboard  -> Dashboard (PROTECTED — must be logged in)
+  /pantry     -> Pantry (PROTECTED)
+  /recipes    -> Recipes (PROTECTED)
+  /planner    -> Meal Planner (PROTECTED)
+
+  "ProtectedRoute" wraps private pages. Without a token, redirects to /login.
+  The dashboard/pantry/recipes/planner routes all share the <Layout /> wrapper.
+
+
+[ src/api/client.ts — HTTP CLIENT ]
+
+  Pre-configured Axios instance used by ALL pages.
+
+  - baseURL: http://localhost:3001/api/v1
+    (pages write apiClient.get('/pantry') instead of full URL)
+
+  - Request Interceptor:
+    Before EVERY request, automatically reads JWT token from localStorage
+    and adds "Authorization: Bearer <token>" to the headers.
+    You never have to add auth headers manually in individual pages.
+
+
+[ src/context/AuthContext.tsx — GLOBAL AUTH STATE ]
+
+  Manages: "Is the user logged in? Who are they?"
+
+  State: { user, isAuthenticated, isLoading }
+
+  On app load:
+  - Reads token + user from localStorage
+  - If both exist, restores logged-in state automatically
+  - isLoading=true during this check (prevents flash-redirect to /login)
+
+  login(token, user):
+  - Called after successful register/login API call
+  - Saves to localStorage, sets user in state
+
+  logout():
+  - Clears localStorage, sets user to null -> all protected routes redirect
+
+  Any component: const { user, logout } = useAuth()
+
+
+[ src/components/Layout.tsx — THE SHELL ]
+
+  The persistent sidebar + content area.
+
+  Left sidebar:
+  - PantryChef brand/logo
+  - Navigation links (Dashboard, My Pantry, Discover Recipes, Meal Planner)
+  - Active page highlighting (useLocation() hook)
+  - User name and email display
+  - Logout button
+
+  Right area:
+  - <Outlet /> — renders the current page's content
+    (when on /pantry, the Pantry component renders here)
+
+
+─────────────────────────────────────────────────────────────────────────
+ FRONTEND PAGES
+─────────────────────────────────────────────────────────────────────────
+
+[ pages/Login.tsx & Register.tsx ]
+
+  Login:
+  - Email + password form
+  - POST /auth/login -> calls AuthContext.login() -> navigate to /dashboard
+
+  Register:
+  - Name + email + password form
+  - POST /auth/register -> calls AuthContext.login() -> navigate to /dashboard
+
+
+[ pages/Pantry.tsx ]
+
+  Data: useQuery(['pantry']) -> GET /pantry
+  Add: useMutation -> POST /pantry -> list auto-refreshes via invalidateQueries
+  Delete: useMutation -> DELETE /pantry/:id -> list auto-refreshes
+
+
+[ pages/Recipes.tsx ]
+
+  "Match My Pantry" mode (default):
+  - GET /recipes/by-pantry?minMatch=30
+  - Cards show: image, title, prep time, match%, missing ingredients
+
+  "Global Search" mode:
+  - Search input -> GET /recipes/search?query=...
+  - Standard recipe cards
+
+
+[ pages/MealPlanner.tsx ]
+
+  "Calendar" view:
+  - GET /meal-plans/current
+  - 7-column x 3-row grid (Mon-Sun x breakfast/lunch/dinner)
+
+  "Shopping List" view:
+  - GET /meal-plans/:id/shopping-list
+  - Ingredients grouped by category, with pantry items pre-checked
+
+
+─────────────────────────────────────────────────────────────────────────
+ HOW A USER ACTION FLOWS END-TO-END
+ (Example: Adding "Chicken Breast" to the pantry)
+─────────────────────────────────────────────────────────────────────────
+
+  1.  User types "Chicken Breast" in Pantry.tsx's form and clicks Add
+  2.  useMutation fires: apiClient.post('/pantry', { ingredientName: "Chicken Breast" })
+  3.  api/client.ts intercepts: adds "Authorization: Bearer <token>" header
+  4.  HTTP POST hits: http://localhost:3001/api/v1/pantry
+  5.  auth.middleware.ts: validates token, attaches user to req
+  6.  pantry.routes.ts handler:
+      a. Validates body with Zod
+      b. Calls NormalizationService.normalize("Chicken Breast")
+      c. NormalizationService: finds or creates Ingredient { canonicalName: "chicken breast" }
+      d. Creates PantryItem { userId: req.user.id, ingredientId: <id>, ... }
+  7.  Returns 201 Created with the new item
+  8.  useMutation onSuccess: queryClient.invalidateQueries(['pantry'])
+  9.  React Query automatically refetches GET /pantry
+  10. Pantry.tsx re-renders showing the new item in the list
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ KEY DEPENDENCIES EXPLAINED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Backend:
+  express              -> Web framework (handles HTTP requests/responses)
+  prisma + @prisma/*   -> Database ORM (write TypeScript instead of raw SQL)
+  pg                   -> PostgreSQL driver (raw connection pool)
+  bcrypt               -> Password hashing
+  jsonwebtoken         -> Creates and verifies JWT login tokens
+  zod                  -> Input validation schemas
+  axios                -> HTTP client to call Spoonacular API
+  fuzzball             -> Fuzzy string matching for ingredient normalization
+  tsx                  -> Runs TypeScript directly without compile step
+  dotenv               -> Loads .env file into process.env
+
+  Frontend:
+  react + react-dom       -> The UI framework
+  react-router-dom        -> Client-side URL routing
+  @tanstack/react-query   -> Server state management (data fetching + caching)
+  axios                   -> HTTP requests to the backend
+  lucide-react            -> Icon library (Calendar, Trash2, Search...)
+  tailwindcss             -> Utility-first CSS framework
+  clsx + tailwind-merge   -> Safely combine Tailwind class names in components
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ HOW TO RUN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  REQUIREMENT: PostgreSQL must be running on port 5433.
+
+  Terminal 1 (Backend):
+    cd backend
+    npm run dev
+    -> Server starts on http://localhost:3001
+
+  Terminal 2 (Frontend):
+    cd frontend
+    npm run dev
+    -> App opens on http://localhost:5173
+
+  If you change backend/.env, restart the backend.
+  If you change prisma/schema.prisma, run: npx prisma db push
+
