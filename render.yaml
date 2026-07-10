@@ -1,9 +1,9 @@
-services:
+databases:
   # The PostgreSQL Database
-  - type: postgres
-    name: pantrychef-db
+  - name: pantrychef-db
     plan: free
 
+services:
   # The Express Backend Service
   - type: web
     name: pantrychef-backend
