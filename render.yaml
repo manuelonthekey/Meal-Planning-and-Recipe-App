@@ -1,6 +1,6 @@
 services:
   # The PostgreSQL Database
-  - type: pgr
+  - type: postgres
     name: pantrychef-db
     plan: free
 
